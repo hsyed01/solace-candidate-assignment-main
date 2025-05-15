@@ -52,51 +52,63 @@ export default function Home() {
   };
 
   return (
-    <main style={{ margin: "24px" }}>
-      <h1>Solace Advocates</h1>
-      <div>
-        <p>Search</p>
-        <p>
-          Searching for: <span>{searchTerm}</span>
-        </p>
+    <main className="p-6 max-w-7xl mx-auto">
+      <h1 className="text-3xl font-bold text-gray-800 mb-6">Solace Advocates</h1>
+
+      <div className="mb-6">
+        <label className="block text-gray-700 mb-2">Search</label>
         <input
-          style={{ border: "1px solid black" }}
+          type="text"
           value={searchTerm}
           onChange={onChange}
+          placeholder="Search by name, city, specialty, etc."
+          className="w-full md:w-1/2 px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
-        <button onClick={onClick}>Reset Search</button>
+        <div className="mt-2 text-sm text-gray-500">
+          Searching for: <span className="font-medium">{searchTerm}</span>
+        </div>
+        <button
+          onClick={onClick}
+          className="mt-4 inline-block bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-lg shadow"
+        >
+          Reset Search
+        </button>
       </div>
-      <br />
-      <table>
-        <thead>
-          <tr>
-            <th>First Name</th>
-            <th>Last Name</th>
-            <th>City</th>
-            <th>Degree</th>
-            <th>Specialties</th>
-            <th>Years of Experience</th>
-            <th>Phone Number</th>
-          </tr>
-        </thead>
-        <tbody>
-          {filteredAdvocates.map((advocate, index) => (
-            <tr key={index}>
-              <td>{advocate.firstName}</td>
-              <td>{advocate.lastName}</td>
-              <td>{advocate.city}</td>
-              <td>{advocate.degree}</td>
-              <td>
-                {advocate.specialties.map((s, i) => (
-                  <div key={i}>{s}</div>
-                ))}
-              </td>
-              <td>{advocate.yearsOfExperience}</td>
-              <td>{advocate.phoneNumber}</td>
+
+      <div className="overflow-auto">
+        <table className="min-w-full table-auto border border-gray-200 rounded-lg shadow-sm">
+          <thead className="bg-gray-100">
+            <tr>
+              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">First Name</th>
+              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Last Name</th>
+              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">City</th>
+              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Degree</th>
+              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Specialties</th>
+              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Experience</th>
+              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Phone</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {filteredAdvocates.map((advocate, index) => (
+              <tr key={index} className="border-t hover:bg-gray-50">
+                <td className="px-4 py-2 text-sm text-gray-800">{advocate.firstName}</td>
+                <td className="px-4 py-2 text-sm text-gray-800">{advocate.lastName}</td>
+                <td className="px-4 py-2 text-sm text-gray-800">{advocate.city}</td>
+                <td className="px-4 py-2 text-sm text-gray-800">{advocate.degree}</td>
+                <td className="px-4 py-2 text-sm text-gray-800">
+                  <ul className="list-disc ml-5">
+                    {advocate.specialties.map((s, i) => (
+                      <li key={i}>{s}</li>
+                    ))}
+                  </ul>
+                </td>
+                <td className="px-4 py-2 text-sm text-gray-800">{advocate.yearsOfExperience}</td>
+                <td className="px-4 py-2 text-sm text-gray-800">{advocate.phoneNumber}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </main>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
+import { debounce } from "lodash"
 
 type Advocate = {
   firstName: string;
@@ -49,7 +50,7 @@ export default function Home() {
     [advocates]
   );
 
-  const filterData = () => {
+  const filterData = useCallback(() => {
     let result = advocates;
 
     if (searchTerm) {
@@ -76,13 +77,21 @@ export default function Home() {
       result = result.filter((a) => a.specialties.includes(selectedSpecialty));
     }
 
-    setPage(1);
+    setPage(1); // Reset page when filters change
     setFilteredAdvocates(result);
-  };
+  }, [advocates, searchTerm, selectedCity, selectedSpecialty]);
+
+  const debouncedFilterData = useMemo(
+    () => debounce(filterData, 500), // 500ms delay for debounce
+    [filterData]
+  );
 
   useEffect(() => {
-    filterData();
-  }, [searchTerm, selectedCity, selectedSpecialty]);
+    debouncedFilterData();
+    return () => {
+      debouncedFilterData.cancel(); // Clean up debounced function
+    };
+  }, [searchTerm, selectedCity, selectedSpecialty, debouncedFilterData]);
 
   const paginatedAdvocates = useMemo(() => {
     const start = (page - 1) * ITEMS_PER_PAGE;
@@ -122,7 +131,16 @@ export default function Home() {
       </div>
 
       {loading ? (
-        <div className="text-center text-gray-500 py-20">Loading...</div>
+        <div className="space-y-4">
+          {/* Skeleton Loader */}
+          {[...Array(5)].map((_, index) => (
+            <div key={index} className="animate-pulse flex space-x-4 mb-4">
+              <div className="w-16 h-6 bg-gray-300 rounded-md"></div>
+              <div className="w-full h-6 bg-gray-300 rounded-md"></div>
+              <div className="w-32 h-6 bg-gray-300 rounded-md"></div>
+            </div>
+          ))}
+        </div>
       ) : filteredAdvocates.length === 0 ? (
         <div className="text-center text-gray-500 py-20">No advocates found.</div>
       ) : (
@@ -162,6 +180,7 @@ export default function Home() {
             </table>
           </div>
 
+          {/* Pagination Controls */}
           <div className="mt-6 flex justify-center gap-2">
             {Array.from({
               length: Math.ceil(filteredAdvocates.length / ITEMS_PER_PAGE),

@@ -18,77 +18,65 @@ const ITEMS_PER_PAGE = 6;
 
 export default function Home() {
   const [advocates, setAdvocates] = useState<Advocate[]>([]);
-  const [filteredAdvocates, setFilteredAdvocates] = useState<Advocate[]>([]);
-  const [searchTerm, setSearchTerm] = useState<string>("");
-  const [selectedCity, setSelectedCity] = useState<string>("All");
-  const [selectedSpecialty, setSelectedSpecialty] = useState<string>("All");
-  const [loading, setLoading] = useState<boolean>(true);
-  const [page, setPage] = useState<number>(1);
-  const [totalAdvocates, setTotalAdvocates] = useState<number>(0);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedCity, setSelectedCity] = useState("All");
+  const [selectedSpecialty, setSelectedSpecialty] = useState("All");
+  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalAdvocates, setTotalAdvocates] = useState(0);
+
+  const fetchAdvocates = async () => {
+    setLoading(true);
+    try {
+      const queryParams = new URLSearchParams({
+        page: String(page),
+      });
+
+      if (searchTerm) queryParams.set("searchTerm", searchTerm);
+      if (selectedCity !== "All") queryParams.set("selectedCity", selectedCity);
+      if (selectedSpecialty !== "All") queryParams.set("selectedSpecialty", selectedSpecialty);
+
+      const res = await fetch(`/api/advocates?${queryParams.toString()}`);
+      const json = await res.json();
+      setAdvocates(json.data || []);
+      setTotalAdvocates(json.total || 0);
+    } catch (err) {
+      console.error("Failed to fetch:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    setLoading(true);
-    const queryParams = new URLSearchParams({
-      page: String(page),
-    });
-
-    if (searchTerm) queryParams.set("searchTerm", searchTerm);
-    if (selectedCity !== "All") queryParams.set("selectedCity", selectedCity);
-    if (selectedSpecialty !== "All") queryParams.set("selectedSpecialty", selectedSpecialty);
-
-    fetch(`/api/advocates?${queryParams.toString()}`)
-      .then((res) => res.json())
-      .then((json) => {
-        setFilteredAdvocates(json.data);
-        setAdvocates(json.data);
-        setTotalAdvocates(json.total);
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error("Failed to fetch:", err);
-        setLoading(false);
-      });
+    fetchAdvocates();
   }, [page, searchTerm, selectedCity, selectedSpecialty]);
 
-  useEffect(() => {
-    setPage(1);
-  }, [searchTerm, selectedCity, selectedSpecialty]);
-
-  const cities = useMemo(() => {
-    if (!Array.isArray(advocates)) return ["All"];
-    const uniqueCities = Array.from(
-      new Set(
-        advocates
-          .filter((a): a is Advocate => a && typeof a.city === "string")
-          .map((a) => a.city)
-      )
-    );
-    return ["All", ...uniqueCities];
-  }, [advocates]);
-
-  const specialties = useMemo(() => {
-    if (!Array.isArray(advocates)) return ["All"];
-    const allSpecialties = advocates.flatMap((a) =>
-      Array.isArray(a.specialties) ? a.specialties : []
-    );
-    const uniqueSpecialties = Array.from(new Set(allSpecialties));
-    return ["All", ...uniqueSpecialties];
-  }, [advocates]);
-
-  const debouncedSearchTerm = useMemo(
+  const debouncedSearch = useMemo(
     () =>
       debounce((value: string) => {
-        console.log("Debounced search term:", value);
         setSearchTerm(value);
         setPage(1);
       }, 500),
     []
   );
 
-  const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const value = event.target.value;
-    debouncedSearchTerm(value);
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    debouncedSearch(e.target.value);
   };
+
+  useEffect(() => {
+    setPage(1);
+  }, [selectedCity, selectedSpecialty]);
+
+  const cities = useMemo(() => {
+    const citySet = new Set(advocates.map((a) => a.city));
+    return ["All", ...Array.from(citySet)];
+  }, [advocates]);
+
+  const specialties = useMemo(() => {
+    const allSpecialties = advocates.flatMap((a) => a.specialties || []);
+    return ["All", ...Array.from(new Set(allSpecialties))];
+  }, [advocates]);
 
   return (
     <main className="p-6 max-w-7xl mx-auto">
@@ -97,7 +85,6 @@ export default function Home() {
       <div className="grid md:grid-cols-3 gap-4 mb-6">
         <input
           type="text"
-          value={searchTerm}
           onChange={handleSearchChange}
           placeholder="Search..."
           className="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500"
@@ -124,15 +111,15 @@ export default function Home() {
 
       {loading ? (
         <div className="space-y-4">
-          {[...Array(5)].map((_, index) => (
-            <div key={index} className="animate-pulse flex space-x-4 mb-4">
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="animate-pulse flex space-x-4 mb-4">
               <div className="w-16 h-6 bg-gray-300 rounded-md"></div>
               <div className="w-full h-6 bg-gray-300 rounded-md"></div>
               <div className="w-32 h-6 bg-gray-300 rounded-md"></div>
             </div>
           ))}
         </div>
-      ) : (Array.isArray(filteredAdvocates) && filteredAdvocates.length === 0) ? (
+      ) : advocates.length === 0 ? (
         <div className="text-center text-gray-500 py-20">No advocates found.</div>
       ) : (
         <>
@@ -150,7 +137,7 @@ export default function Home() {
                 </tr>
               </thead>
               <tbody>
-                {filteredAdvocates.map((advocate) => (
+                {advocates.map((advocate) => (
                   <tr key={advocate.id} className="border-t hover:bg-gray-50">
                     <td className="px-4 py-2">{advocate.firstName}</td>
                     <td className="px-4 py-2">{advocate.lastName}</td>
@@ -158,8 +145,8 @@ export default function Home() {
                     <td className="px-4 py-2">{advocate.degree}</td>
                     <td className="px-4 py-2">
                       <ul className="list-disc list-inside">
-                        {advocate.specialties.map((s, idx) => (
-                          <li key={idx}>{s}</li>
+                        {advocate.specialties.map((s, i) => (
+                          <li key={i}>{s}</li>
                         ))}
                       </ul>
                     </td>
@@ -171,11 +158,9 @@ export default function Home() {
             </table>
           </div>
 
-          {/* Pagination Controls */}
+          {/* Pagination */}
           <div className="mt-6 flex justify-center gap-2">
-            {Array.from({
-              length: Math.ceil(totalAdvocates / ITEMS_PER_PAGE),
-            }).map((_, idx) => {
+            {Array.from({ length: Math.ceil(totalAdvocates / ITEMS_PER_PAGE) }).map((_, idx) => {
               const num = idx + 1;
               return (
                 <button

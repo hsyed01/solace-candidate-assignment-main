@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState, useCallback } from "react";
-import { debounce } from "lodash"
+import { useEffect, useMemo, useState } from "react";
+import { debounce } from "lodash";
 
 type Advocate = {
+  id: number;
   firstName: string;
   lastName: string;
   city: string;
@@ -23,80 +24,76 @@ export default function Home() {
   const [selectedSpecialty, setSelectedSpecialty] = useState<string>("All");
   const [loading, setLoading] = useState<boolean>(true);
   const [page, setPage] = useState<number>(1);
+  const [totalAdvocates, setTotalAdvocates] = useState<number>(0);
 
   useEffect(() => {
     setLoading(true);
-    fetch("/api/advocates")
+    const queryParams = new URLSearchParams({
+      page: String(page),
+    });
+
+    if (searchTerm) queryParams.set("searchTerm", searchTerm);
+    if (selectedCity !== "All") queryParams.set("selectedCity", selectedCity);
+    if (selectedSpecialty !== "All") queryParams.set("selectedSpecialty", selectedSpecialty);
+
+    fetch(`/api/advocates?${queryParams.toString()}`)
       .then((res) => res.json())
       .then((json) => {
+        if (page === 1) {
+          setFilteredAdvocates(json.data);
+        } else {
+          setFilteredAdvocates((prevData) => [...prevData, ...json.data]);
+        }
         setAdvocates(json.data);
-        setFilteredAdvocates(json.data);
+        setTotalAdvocates(json.total);
         setLoading(false);
       })
       .catch((err) => {
         console.error("Failed to fetch:", err);
         setLoading(false);
       });
-  }, []);
+  }, [page, searchTerm, selectedCity, selectedSpecialty]);
 
-  const cities = useMemo(
-    () => ["All", ...Array.from(new Set(advocates.map((a) => a.city)))],
-    [advocates]
-  );
+  const cities = useMemo(() => {
+    if (!Array.isArray(advocates)) return ["All"];
+    const uniqueCities = Array.from(
+      new Set(
+        advocates
+          .filter((a): a is Advocate => a && typeof a.city === "string")
+          .map((a) => a.city)
+      )
+    );
+    return ["All", ...uniqueCities];
+  }, [advocates]);
 
-  const specialties = useMemo(
+  const specialties = useMemo(() => {
+    if (!Array.isArray(advocates)) return ["All"];
+    const allSpecialties = advocates.flatMap((a) =>
+      Array.isArray(a.specialties) ? a.specialties : []
+    );
+    const uniqueSpecialties = Array.from(new Set(allSpecialties));
+    return ["All", ...uniqueSpecialties];
+  }, [advocates]);
+
+  const debouncedSearchTerm = useMemo(
     () =>
-      ["All", ...Array.from(new Set(advocates.flatMap((a) => a.specialties)))],
-    [advocates]
+      debounce((value: string) => {
+        console.log("Debounced search term:", value);
+        setSearchTerm(value);
+        setPage(1);
+      }, 500),
+    []
   );
-
-  const filterData = useCallback(() => {
-    let result = advocates;
-
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      result = result.filter((advocate) =>
-        [
-          advocate.firstName,
-          advocate.lastName,
-          advocate.city,
-          advocate.degree,
-          ...advocate.specialties,
-          advocate.yearsOfExperience.toString(),
-        ]
-          .map((val) => val.toLowerCase())
-          .some((val) => val.includes(term))
-      );
-    }
-
-    if (selectedCity !== "All") {
-      result = result.filter((a) => a.city === selectedCity);
-    }
-
-    if (selectedSpecialty !== "All") {
-      result = result.filter((a) => a.specialties.includes(selectedSpecialty));
-    }
-
-    setPage(1); // Reset page when filters change
-    setFilteredAdvocates(result);
-  }, [advocates, searchTerm, selectedCity, selectedSpecialty]);
-
-  const debouncedFilterData = useMemo(
-    () => debounce(filterData, 500), // 500ms delay for debounce
-    [filterData]
-  );
-
-  useEffect(() => {
-    debouncedFilterData();
-    return () => {
-      debouncedFilterData.cancel(); // Clean up debounced function
-    };
-  }, [searchTerm, selectedCity, selectedSpecialty, debouncedFilterData]);
 
   const paginatedAdvocates = useMemo(() => {
     const start = (page - 1) * ITEMS_PER_PAGE;
-    return filteredAdvocates.slice(start, start + ITEMS_PER_PAGE);
+    return (filteredAdvocates || []).slice(start, start + ITEMS_PER_PAGE);
   }, [filteredAdvocates, page]);
+
+  const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const value = event.target.value;
+    debouncedSearchTerm(value);
+  };
 
   return (
     <main className="p-6 max-w-7xl mx-auto">
@@ -106,7 +103,7 @@ export default function Home() {
         <input
           type="text"
           value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
+          onChange={handleSearchChange}
           placeholder="Search..."
           className="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500"
         />
@@ -132,7 +129,6 @@ export default function Home() {
 
       {loading ? (
         <div className="space-y-4">
-          {/* Skeleton Loader */}
           {[...Array(5)].map((_, index) => (
             <div key={index} className="animate-pulse flex space-x-4 mb-4">
               <div className="w-16 h-6 bg-gray-300 rounded-md"></div>
@@ -141,7 +137,7 @@ export default function Home() {
             </div>
           ))}
         </div>
-      ) : filteredAdvocates.length === 0 ? (
+      ) : (Array.isArray(filteredAdvocates) && filteredAdvocates.length === 0) ? (
         <div className="text-center text-gray-500 py-20">No advocates found.</div>
       ) : (
         <>
@@ -159,8 +155,8 @@ export default function Home() {
                 </tr>
               </thead>
               <tbody>
-                {paginatedAdvocates.map((advocate, i) => (
-                  <tr key={i} className="border-t hover:bg-gray-50">
+                {paginatedAdvocates.map((advocate) => (
+                  <tr key={advocate.id} className="border-t hover:bg-gray-50">
                     <td className="px-4 py-2">{advocate.firstName}</td>
                     <td className="px-4 py-2">{advocate.lastName}</td>
                     <td className="px-4 py-2">{advocate.city}</td>
@@ -183,7 +179,7 @@ export default function Home() {
           {/* Pagination Controls */}
           <div className="mt-6 flex justify-center gap-2">
             {Array.from({
-              length: Math.ceil(filteredAdvocates.length / ITEMS_PER_PAGE),
+              length: Math.ceil(totalAdvocates / ITEMS_PER_PAGE),
             }).map((_, idx) => {
               const num = idx + 1;
               return (

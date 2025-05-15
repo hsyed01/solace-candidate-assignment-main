@@ -39,11 +39,7 @@ export default function Home() {
     fetch(`/api/advocates?${queryParams.toString()}`)
       .then((res) => res.json())
       .then((json) => {
-        if (page === 1) {
-          setFilteredAdvocates(json.data);
-        } else {
-          setFilteredAdvocates((prevData) => [...prevData, ...json.data]);
-        }
+        setFilteredAdvocates(json.data);
         setAdvocates(json.data);
         setTotalAdvocates(json.total);
         setLoading(false);
@@ -53,6 +49,10 @@ export default function Home() {
         setLoading(false);
       });
   }, [page, searchTerm, selectedCity, selectedSpecialty]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm, selectedCity, selectedSpecialty]);
 
   const cities = useMemo(() => {
     if (!Array.isArray(advocates)) return ["All"];
@@ -84,11 +84,6 @@ export default function Home() {
       }, 500),
     []
   );
-
-  const paginatedAdvocates = useMemo(() => {
-    const start = (page - 1) * ITEMS_PER_PAGE;
-    return (filteredAdvocates || []).slice(start, start + ITEMS_PER_PAGE);
-  }, [filteredAdvocates, page]);
 
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const value = event.target.value;
@@ -155,7 +150,7 @@ export default function Home() {
                 </tr>
               </thead>
               <tbody>
-                {paginatedAdvocates.map((advocate) => (
+                {filteredAdvocates.map((advocate) => (
                   <tr key={advocate.id} className="border-t hover:bg-gray-50">
                     <td className="px-4 py-2">{advocate.firstName}</td>
                     <td className="px-4 py-2">{advocate.lastName}</td>
